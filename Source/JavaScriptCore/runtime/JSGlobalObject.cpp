@@ -1293,7 +1293,9 @@ void JSGlobalObject::init(VM& vm)
     m_regExpMatchesArrayWithIndicesStructure.set(vm, this, createRegExpMatchesArrayWithIndicesStructure(vm, this));
     m_regExpMatchesIndicesArrayStructure.set(vm, this, createRegExpMatchesIndicesArrayStructure(vm, this));
 
-    m_trustedScriptStructure.setMayBeNull(vm, this, globalObjectMethodTable()->trustedScriptStructure(this));
+    // get the structure for the TrustedScript constructor
+    auto* trustedScriptStructure = globalObjectMethodTable()->trustedScriptStructure(this);
+    m_trustedScriptStructure.setMayBeNull(vm, this, trustedScriptStructure);
 
     m_moduleRecordStructure.initLater(
         [] (const Initializer<Structure>& init) {
@@ -2265,6 +2267,21 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_objectPrototype.get(), vm.propertyNames->negativeOneIdentifier, nullptr), m_arrayNegativeOneWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_arrayPrototype.get(), vm.propertyNames->isConcatSpreadableSymbol, objectPrototype()), m_arrayIsConcatSpreadableWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_objectPrototype.get(), vm.propertyNames->isConcatSpreadableSymbol, nullptr), m_arrayIsConcatSpreadableWatchpointSet);
+
+    if (auto* trustedScriptStructure = this->trustedScriptStructure()) {
+        JSValue prototypeValue = trustedScriptStructure->storedPrototype();
+        ASSERT(prototypeValue.isObject());
+
+        auto* trustedScriptPrototype = asObject(prototypeValue);
+
+        installObjectPropertyChangeAdaptiveWatchpoint(
+            setupAdaptiveWatchpoint(this, trustedScriptPrototype, vm.propertyNames->toString),
+            m_trustedScriptStringificationWatchpointSet);
+
+        installObjectAdaptiveStructureWatchpoint(
+            setupAbsenceAdaptiveWatchpoint(this, objectPrototype(), vm.propertyNames->toPrimitiveSymbol, nullptr),
+            m_trustedScriptStringificationWatchpointSet);
+    }
 
     // The iterator protocol fast paths assume that IteratorClose is unobservable, so they must be
     // invalidated when a "return" property appears anywhere on the iterator's prototype chain.

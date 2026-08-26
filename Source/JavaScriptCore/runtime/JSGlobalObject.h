@@ -553,6 +553,7 @@ public:
     InlineWatchpointSet m_promisePrototypeChainIsSaneWatchpointSet { IsWatched };
     InlineWatchpointSet m_numberToStringWatchpointSet { IsWatched };
     InlineWatchpointSet m_stringToStringWatchpointSet { IsWatched };
+    InlineWatchpointSet m_trustedScriptStringificationWatchpointSet { IsWatched };
     InlineWatchpointSet m_stringValueOfWatchpointSet { IsWatched };
     InlineWatchpointSet m_objectPrototypeValueOfWatchpointSet { IsWatched };
     InlineWatchpointSet m_arrayPrototypeValueOfWatchpointSet { IsWatched };
@@ -615,6 +616,7 @@ public:
     InlineWatchpointSet& stringSymbolToPrimitiveWatchpointSet() LIFETIME_BOUND { return m_stringSymbolToPrimitiveWatchpointSet; }
     InlineWatchpointSet& arraySymbolToPrimitiveWatchpointSet() LIFETIME_BOUND { return m_arraySymbolToPrimitiveWatchpointSet; }
     InlineWatchpointSet& stringToStringWatchpointSet() LIFETIME_BOUND { return m_stringToStringWatchpointSet; }
+    InlineWatchpointSet& trustedScriptStringificationWatchpointSet() LIFETIME_BOUND { return m_trustedScriptStringificationWatchpointSet; }
     InlineWatchpointSet& stringValueOfWatchpointSet() LIFETIME_BOUND { return m_stringValueOfWatchpointSet; }
     InlineWatchpointSet& objectPrototypeValueOfWatchpointSet() LIFETIME_BOUND { return m_objectPrototypeValueOfWatchpointSet; }
     InlineWatchpointSet& arrayPrototypeValueOfWatchpointSet() LIFETIME_BOUND { return m_arrayPrototypeValueOfWatchpointSet; }

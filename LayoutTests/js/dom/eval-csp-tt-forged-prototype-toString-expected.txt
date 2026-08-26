@@ -1,0 +1,6 @@
+PASS eval returns a null-prototype object unchanged
+PASS eval accepts a TrustedScript whose prototype is set to null
+PASS direct eval ignores a forged TrustedScript.prototype.toString
+PASS indirect eval ignores a forged TrustedScript.prototype.toString
+PASS direct eval ignores a forged TrustedScript.prototype Symbol.toPrimitive
+

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta http-equiv="Content-Security-Policy" content="require-trusted-types-for 'script';">
+</head>
+<body>
+<pre id="console"></pre>
+<script>
+  if (window.testRunner)
+    testRunner.dumpAsText();
+
+  const p = trustedTypes.createPolicy("p", {createScript: s => s});
+
+  function check(description, callback) {
+    try {
+      callback();
+      document.getElementById("console").appendChild(document.createTextNode("PASS " + description + "\n"));
+    } catch (error) {
+      document.getElementById("console").appendChild(document.createTextNode("FAIL " + description + "\n"));
+    }
+  }
+
+  check("eval returns a null-prototype object unchanged", () => {
+    const object = Object.create(null);
+    object.toString = () => { throw new Error; };
+    if (eval(object) !== object)
+      throw new Error;
+  });
+
+  check("eval accepts a TrustedScript whose prototype is set to null", () => {
+    const script = p.createScript('1+1');
+    const originalPrototype = Object.getPrototypeOf(script);
+    try {
+      Object.setPrototypeOf(script, null);
+      if (eval(script) !== 2)
+        throw new Error;
+    } finally {
+      Object.setPrototypeOf(script, originalPrototype);
+    }
+  });
+
+  check("direct eval ignores a forged TrustedScript.prototype.toString", () => {
+    const script = p.createScript('1+1');
+    const originalToString = TrustedScript.prototype.toString;
+    try {
+      TrustedScript.prototype.toString = () => '1+2';
+      if (eval(script) !== 2)
+        throw new Error;
+    } finally {
+      TrustedScript.prototype.toString = originalToString;
+    }
+  });
+
+  check("indirect eval ignores a forged TrustedScript.prototype.toString", () => {
+    const script = p.createScript('1+1');
+    const originalToString = TrustedScript.prototype.toString;
+    try {
+      TrustedScript.prototype.toString = () => '1+2';
+      if ((0, eval)(script) !== 2)
+        throw new Error;
+    } finally {
+      TrustedScript.prototype.toString = originalToString;
+    }
+  });
+
+  check("direct eval ignores a forged TrustedScript.prototype Symbol.toPrimitive", () => {
+    const script = p.createScript('1+1');
+    const originalToPrimitive = TrustedScript.prototype[Symbol.toPrimitive];
+    try {
+      TrustedScript.prototype[Symbol.toPrimitive] = () => '1+2';
+      if (eval(script) !== 2)
+        throw new Error;
+    } finally {
+      TrustedScript.prototype[Symbol.toPrimitive] = originalToPrimitive;
+    }
+  });
+
+</script>
+

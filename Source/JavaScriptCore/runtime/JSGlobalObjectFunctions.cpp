@@ -461,7 +461,8 @@ JSC_DEFINE_HOST_FUNCTION(globalFuncEval, (JSGlobalObject* globalObject, CallFram
         RETURN_IF_EXCEPTION(scope, { });
     } else if (Options::useTrustedTypes() && x.isObject()) {
         auto* structure = globalObject->trustedScriptStructure();
-        if (structure == asObject(x)->structure()) {
+        if (structure == asObject(x)->structure()
+            && globalObject->trustedScriptStringificationWatchpointSet().isStillValid()) {
             programSource = x.toWTFString(globalObject);
             RETURN_IF_EXCEPTION(scope, { });
             isTrusted = true;
