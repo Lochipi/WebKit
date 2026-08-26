@@ -71,10 +71,10 @@ public:
         SkGraphics::SetOpenTypeSVGDecoderFactory(SkSVGOpenTypeSVGDecoder::Make);
 #endif
 
-#if ENABLE(DEVELOPER_MODE)
-        if (g_getenv("WEBKIT_PAUSE_WEB_PROCESS_ON_LAUNCH"))
-            g_usleep(30 * G_USEC_PER_SEC);
-#endif
+// #if ENABLE(DEVELOPER_MODE)
+         if (g_getenv("WEBKIT_PAUSE_WEB_PROCESS_ON_LAUNCH"))
+             g_usleep(30 * G_USEC_PER_SEC);
+// #endif
 
         if (!setlocale(LC_ALL, ""))
             g_warning("Locale not supported by C library.\n\tUsing the fallback 'C' locale.");

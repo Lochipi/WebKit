@@ -450,44 +450,100 @@ static double parseFloat(StringView s)
 
 JSC_DEFINE_HOST_FUNCTION(globalFuncEval, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
+    fprintf(stderr, "[eval] >>> Entering globalFuncEval, arg count = %zu\n", callFrame->argumentCount());
+    fflush(stderr);
+    
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
     JSValue x = callFrame->argument(0);
     String programSource;
     bool isTrusted = false;
+    
+    fprintf(stderr, "[eval] x.isString() = %s, x.isObject() = %s, x.isEmpty() = %s\n", 
+        x.isString() ? "true" : "false",
+        x.isObject() ? "true" : "false",
+        x.isEmpty() ? "true" : "false");
+    fflush(stderr);
+    
     if (x.isString()) [[likely]] {
+        fprintf(stderr, "[eval] >>> Taking STRING path\n");
+        fflush(stderr);
         programSource = x.toWTFString(globalObject);
         RETURN_IF_EXCEPTION(scope, { });
     } else if (Options::useTrustedTypes() && x.isObject()) {
+        fprintf(stderr, "[eval] >>> Checking TRUSTEDSCRIPT path\n");
+        fflush(stderr);
+        
         auto* structure = globalObject->trustedScriptStructure();
-        if (structure == asObject(x)->structure()) {
-            programSource = x.toWTFString(globalObject);
-            RETURN_IF_EXCEPTION(scope, { });
-            isTrusted = true;
-        } else {
-            auto code = globalObject->globalObjectMethodTable()->codeForEval(globalObject, x);
-            RETURN_IF_EXCEPTION(scope, { });
-            if (!code.isNull()) {
-                programSource = code;
+        fprintf(stderr, "[eval]   - trustedScriptStructure() = %p\n", structure);
+        fflush(stderr);
+        
+        if (structure) {
+            auto* objectStructure = asObject(x)->structure();
+            bool structureMatch = (structure == objectStructure);
+            bool watchpointValid = globalObject->trustedScriptStringificationWatchpointSet().isStillValid();
+            
+            fprintf(stderr, "[eval]   - x->structure() = %p\n", objectStructure);
+            fprintf(stderr, "[eval]   - structure match = %s\n", structureMatch ? "true" : "false");
+            fprintf(stderr, "[eval]   - watchpoint valid = %s\n", watchpointValid ? "true" : "false");
+            fflush(stderr);
+            
+            if (structureMatch && watchpointValid) {
+                fprintf(stderr, "[eval] >>> FAST PATH: TrustedScript structure matched + watchpoint valid\n");
+                fflush(stderr);
+                programSource = x.toWTFString(globalObject);
+                RETURN_IF_EXCEPTION(scope, { });
                 isTrusted = true;
+                fprintf(stderr, "[eval]   - extracted source, isTrusted = true\n");
+                fflush(stderr);
+            } else {
+                fprintf(stderr, "[eval] >>> FALLBACK PATH: Using codeForEval\n");
+                fflush(stderr);
+                auto code = globalObject->globalObjectMethodTable()->codeForEval(globalObject, x);
+                RETURN_IF_EXCEPTION(scope, { });
+                if (!code.isNull()) {
+                    programSource = code;
+                    isTrusted = true;
+                    fprintf(stderr, "[eval]   - codeForEval returned code, isTrusted = true\n");
+                    fflush(stderr);
+                }
             }
+        } else {
+            fprintf(stderr, "[eval]   - WARNING: trustedScriptStructure is null!\n");
+            fflush(stderr);
         }
+    } else {
+        fprintf(stderr, "[eval] >>> No TrustedTypes, falling through\n");
+        fflush(stderr);
     }
 
-    if (programSource.isNull())
+    if (programSource.isNull()) {
+        fprintf(stderr, "[eval] >>> programSource is null, returning x\n");
+        fflush(stderr);
         return JSValue::encode(x);
+    }
+
+    fprintf(stderr, "[eval]   - programSource length = %u, isTrusted = %s\n", 
+        programSource.length(), isTrusted ? "true" : "false");
+    fflush(stderr);
 
     if (globalObject->trustedTypesEnforcement() != TrustedTypesEnforcement::None && !isTrusted) {
+        fprintf(stderr, "[eval] >>> Checking trustedTypesEnforcement\n");
+        fflush(stderr);
         bool canCompileStrings = globalObject->globalObjectMethodTable()->canCompileStrings(globalObject, CompilationType::IndirectEval, programSource, *vm.emptyList);
         RETURN_IF_EXCEPTION(scope, { });
         if (!canCompileStrings) {
+            fprintf(stderr, "[eval] ERROR: TrustedTypes enforcement block - canCompileStrings = false\n");
+            fflush(stderr);
             throwException(globalObject, scope, createEvalError(globalObject, "Refused to evaluate a string as JavaScript because this document requires a 'Trusted Type' assignment."_s));
             return { };
         }
     }
 
     if (!globalObject->evalEnabled() && globalObject->trustedTypesEnforcement() != TrustedTypesEnforcement::EnforcedWithEvalEnabled) {
+        fprintf(stderr, "[eval] ERROR: eval disabled\n");
+        fflush(stderr);
         globalObject->globalObjectMethodTable()->reportViolationForUnsafeEval(globalObject, programSource);
         throwException(globalObject, scope, createEvalError(globalObject, globalObject->evalDisabledErrorMessage()));
         return JSValue::encode(jsUndefined());

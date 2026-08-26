@@ -339,6 +339,7 @@
 #include <wtf/FixedVector.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/text/MakeString.h>
+#include <stdio.h> // I will remove this; but using it for debugging purposes for now.
 
 #if ENABLE(REMOTE_INSPECTOR)
 #include "JSGlobalObjectDebuggable.h"
@@ -1293,7 +1294,9 @@ void JSGlobalObject::init(VM& vm)
     m_regExpMatchesArrayWithIndicesStructure.set(vm, this, createRegExpMatchesArrayWithIndicesStructure(vm, this));
     m_regExpMatchesIndicesArrayStructure.set(vm, this, createRegExpMatchesIndicesArrayStructure(vm, this));
 
-    m_trustedScriptStructure.setMayBeNull(vm, this, globalObjectMethodTable()->trustedScriptStructure(this));
+    // get the structure for the TrustedScript constructor
+    auto* trustedScriptStructure = globalObjectMethodTable()->trustedScriptStructure(this);
+    m_trustedScriptStructure.setMayBeNull(vm, this, trustedScriptStructure);
 
     m_moduleRecordStructure.initLater(
         [] (const Initializer<Structure>& init) {
@@ -2265,6 +2268,53 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_objectPrototype.get(), vm.propertyNames->negativeOneIdentifier, nullptr), m_arrayNegativeOneWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_arrayPrototype.get(), vm.propertyNames->isConcatSpreadableSymbol, objectPrototype()), m_arrayIsConcatSpreadableWatchpointSet);
     installObjectAdaptiveStructureWatchpoint(setupAbsenceAdaptiveWatchpoint(this, m_objectPrototype.get(), vm.propertyNames->isConcatSpreadableSymbol, nullptr), m_arrayIsConcatSpreadableWatchpointSet);
+
+    // TrustedScript.prototype.toString / Symbol.toPrimitive
+    if(auto* trustedScriptStructure = this->trustedScriptStructure()) {
+        fprintf(stderr, "[JSGlobalObject::init] Setting up TrustedScript watchpoints...\n");
+        fflush(stderr);
+        
+        JSValue prototypeValue = trustedScriptStructure->storedPrototype();
+
+        // get the property object, TrustedScript.prototype        
+        if (!prototypeValue.isObject()) {
+            fprintf(stderr, "[JSGlobalObject::init] ERROR: TrustedScript prototype is not an object\n");            fflush(stderr);
+        } else {
+            auto* trustedScriptPrototype = asObject(prototypeValue);
+            fprintf(stderr, "[JSGlobalObject::init] trustedScriptPrototype = %p\n", trustedScriptPrototype);
+            fflush(stderr);
+
+            // TrustedScript.prototype.toString
+            fprintf(stderr, "[JSGlobalObject::init] Setting up toString watchpoint...\n");
+            fflush(stderr);
+            installObjectPropertyChangeAdaptiveWatchpoint(
+                setupAdaptiveWatchpoint(this, trustedScriptPrototype, vm.propertyNames->toString),
+                m_trustedScriptStringificationWatchpointSet);
+            fprintf(stderr, "[JSGlobalObject::init] toString watchpoint installed\n");
+            fflush(stderr);
+
+            // We watch the prototypes of the TrustedScript.prototype Symbol.toPrimitive chain
+            // (Object.prototype and null) for the possible locations where adding it could
+            // affect TrustedScript coercion.
+            fprintf(stderr, "[JSGlobalObject::init] Setting up toPrimitive watchpoint (TrustedScript.prototype)...\n");
+            fflush(stderr);
+            installObjectAdaptiveStructureWatchpoint(
+                setupAbsenceAdaptiveWatchpoint(this, trustedScriptPrototype, vm.propertyNames->toPrimitiveSymbol, objectPrototype()),
+                m_trustedScriptStringificationWatchpointSet);
+            fprintf(stderr, "[JSGlobalObject::init] TrustedScript.prototype toPrimitive watchpoint installed\n");
+            fflush(stderr);
+
+            fprintf(stderr, "[JSGlobalObject::init] Setting up toPrimitive watchpoint (Object.prototype)...\n");
+            fflush(stderr);
+            installObjectAdaptiveStructureWatchpoint(
+                setupAbsenceAdaptiveWatchpoint(this, objectPrototype(), vm.propertyNames->toPrimitiveSymbol, nullptr),
+                m_trustedScriptStringificationWatchpointSet);
+            fprintf(stderr, "[JSGlobalObject::init] Object.prototype toPrimitive watchpoint installed\n");
+            fflush(stderr);
+            fprintf(stderr, "[JSGlobalObject::init] TrustedScript watchpoints setup complete\n");
+            fflush(stderr);
+        }
+    }
 
     // The iterator protocol fast paths assume that IteratorClose is unobservable, so they must be
     // invalidated when a "return" property appears anywhere on the iterator's prototype chain.

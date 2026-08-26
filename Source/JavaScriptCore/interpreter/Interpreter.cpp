@@ -128,7 +128,8 @@ JSValue eval(CallFrame* callFrame, JSValue thisValue, JSScope* callerScopeChain,
     else {
         if (Options::useTrustedTypes() && program.isObject()) {
             auto* structure = globalObject->trustedScriptStructure();
-            if (structure == asObject(program)->structure()) {
+            if (structure == asObject(program)->structure() 
+                && globalObject->trustedScriptStringificationWatchpointSet().isStillValid()) {
                 programString = program.toString(globalObject);
                 RETURN_IF_EXCEPTION(scope, { });
                 isTrusted = true;

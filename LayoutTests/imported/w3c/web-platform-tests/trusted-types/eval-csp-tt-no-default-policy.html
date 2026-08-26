@@ -38,6 +38,38 @@
   }, "Function constructor of TrustedScript works.");
 
   test(t => {
+    const script = p.createScript('1+1');
+    const originalToString = TrustedScript.prototype.toString;
+    t.add_cleanup(() => { TrustedScript.prototype.toString = originalToString; });
+
+    TrustedScript.prototype.toString = () => '1+2';
+
+    assert_equals(eval(script), 2);
+  }, "direct eval ignores a forged TrustedScript.prototype.toString")
+
+  test(t => {
+  const script = p.createScript('1+1');
+  const originalToString = TrustedScript.prototype.toString;
+  t.add_cleanup(() => { TrustedScript.prototype.toString = originalToString; });
+
+  TrustedScript.prototype.toString = () => '1+2';
+
+    assert_equals((0, eval)(script), 2);
+  }, "indirect eval ignores a forged TrustedScript.prototype.toString");
+
+  test(t => {
+  const script = p.createScript('1+1');
+  const originalToPrimitive = TrustedScript.prototype[Symbol.toPrimitive];
+  t.add_cleanup(() => {
+    TrustedScript.prototype[Symbol.toPrimitive] = originalToPrimitive;
+  });
+
+  TrustedScript.prototype[Symbol.toPrimitive] = () => '1+2';
+
+    assert_equals(eval(script), 2);
+  }, "direct eval ignores a forged TrustedScript.prototype Symbol.toPrimitive");
+
+  test(t => {
     assert_throws_js(EvalError, _ => new Function('return 1+1')());
   }, "Function constructor of string fails.");
 
